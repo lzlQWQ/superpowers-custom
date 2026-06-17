@@ -42,14 +42,35 @@ deliverable needs them; split only where a reviewer could meaningfully
 reject one task while approving its neighbor. Each task ends with an
 independently testable deliverable.
 
+## Task Classification
+
+Before defining steps for each task, classify it. The type determines whether a red test is required and when verification runs.
+
+| Type | Criteria | Red Test | When to Verify |
+|------|----------|----------|----------------|
+| **Structural** | Creates class/file scaffolding, DB migrations, config files, interface definitions | ❌ None | At next Checkpoint |
+| **Behavioral** | Implements logic with assertable input → output | ✅ Required | At current Checkpoint |
+| **Integration** | Connects multiple already-implemented components end-to-end | ✅ Optional | At current Checkpoint |
+
+**Gate Function — before writing a red test, ask in order:**
+1. If the implementation existed correctly, would this test pass? If unsure → skip.
+2. Would failure be a **compile error** (symbol not found) or a **behavior assertion failure**? Compile error → skip. Assertion failure → write it.
+3. Do all classes/methods called in the test already exist from earlier tasks? If no → skip (compile error, not behavior failure).
+
 ## Bite-Sized Task Granularity
 
-**Each step is one action (2-5 minutes):**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+Structural tasks are one step. Behavioral tasks are two steps. Tests run at Checkpoints only — not after every individual task.
+
+**Structural task (1 step):**
+- "Create the class/file skeleton with correct signatures" — step
+
+**Behavioral task (2 steps):**
+- "Write the failing test (assertion failure, not compile error)" — step
+- "Write minimal implementation" — step
+
+**Checkpoint (runs after a group of tasks):**
+- "Run all accumulated tests, confirm all pass" — step
+- "Commit" — step
 
 ## Plan Document Header
 
@@ -78,51 +99,116 @@ include this section.]
 
 ## Task Structure
 
+Tag each task with its type: `[Structural]`, `[Behavioral]`, or `[Integration]`.
+
+### Structural Task Template
+
 ````markdown
-### Task N: [Component Name]
+### Task N: [Component Name] [Structural]
 
 **Files:**
 - Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
 
 **Interfaces:**
-- Consumes: [what this task uses from earlier tasks — exact signatures]
-- Produces: [what later tasks rely on — exact function names, parameter
-  and return types. A task's implementer sees only their own task; this
-  block is how they learn the names and types neighboring tasks use.]
+- Produces: [exact function names, parameter and return types that later tasks depend on]
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Create skeleton**
+
+```python
+class ClassName:
+    def method_name(self, param: Type) -> ReturnType:
+        pass  # implemented in Task N+x
+```
+
+> No red test. Skeleton creation would only fail with a compile error, which proves nothing.
+> Verified at the next Checkpoint.
+````
+
+### Behavioral Task Template
+
+````markdown
+### Task N: [Component Name] [Behavioral]
+
+**Files:**
+- Modify: `exact/path/to/existing.py`
+- Test: `tests/exact/path/to/test_file.py`
+
+**Interfaces:**
+- Consumes: [exact signatures from earlier tasks]
+- Produces: [what later tasks rely on — exact function names, parameter and return types]
+
+- [ ] **Step 1: Write failing test**
+
+> Must fail due to **behavior assertion failure**, not a compile error.
+> All referenced classes/methods must already exist from earlier tasks.
 
 ```python
 def test_specific_behavior():
     result = function(input)
-    assert result == expected
+    assert result == expected  # fails: behavior not implemented yet
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
-
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 2: Write minimal implementation**
 
 ```python
 def function(input):
     return expected
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+> Verified at the next Checkpoint — not immediately after this task.
+````
 
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
+### Integration Task Template
 
-- [ ] **Step 5: Commit**
+````markdown
+### Task N: [Component Name] [Integration]
 
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
+**Files:**
+- Test: `tests/integration/test_flow.py`
+
+- [ ] **Step 1: Write integration test** (only if end-to-end behavior is not already covered by unit tests)
+
+```python
+def test_full_flow():
+    # exercise real components, minimal mocking
+    result = system.process(input)
+    assert result == expected_output
 ```
+
+- [ ] **Step 2: Wire components together**
+
+> Verified at the next Checkpoint.
+````
+
+## Checkpoint Structure
+
+Insert a Checkpoint after every 2–5 tasks, at feature-slice boundaries, and before every commit. **Checkpoints are the only place tests run and commits happen.**
+
+**Checkpoint placement rules:**
+- After completing a logical feature slice (all its structural + behavioral tasks done)
+- Before tasks that depend on outputs of the current group
+- Never more than 5 tasks between checkpoints
+- Architectural guideline: more behavioral tasks = more frequent checkpoints (2–3 tasks); mostly structural tasks = can span up to 5 tasks
+
+````markdown
+### ✅ Checkpoint: [Feature Slice Name]
+
+**Covers tasks:** Task N, Task N+1, Task N+2
+
+- [ ] Run all tests
+
+  ```bash
+  pytest tests/ -v --tb=short
+  ```
+
+  Expected: All pass, output clean (no errors, no warnings)
+
+- [ ] Commit
+
+  ```bash
+  git add .
+  git commit -m "feat: [feature slice description]"
+  ```
 ````
 
 ## No Placeholders

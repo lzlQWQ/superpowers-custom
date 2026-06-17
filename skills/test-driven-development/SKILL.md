@@ -25,6 +25,7 @@ Write the test first. Watch it fail. Write minimal code to pass.
 - Throwaway prototypes
 - Generated code
 - Configuration files
+- **Structural scaffolding tasks** — creating class/file skeletons, interface definitions, or DB migrations where any possible test failure would be a compile error (e.g., "the class doesn't exist yet"), not a behavior assertion failure. Write the skeleton first; write a behavioral red test in the next task once the symbol exists to call.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
