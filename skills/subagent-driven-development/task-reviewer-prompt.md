@@ -1,28 +1,29 @@
 # Task Reviewer Prompt Template
 
 Use this template when dispatching a task reviewer subagent. The reviewer
-reads the task's diff once and returns two verdicts: spec compliance and
-code quality.
+reads one execution slice's diff once and returns two verdicts: spec
+compliance and code quality.
 
-**Purpose:** Verify one task's implementation matches its requirements (nothing
-more, nothing less) and is well-built (clean, tested, maintainable)
+**Purpose:** Verify one execution slice's implementation matches its
+requirements (nothing more, nothing less) and is well-built (clean, tested,
+maintainable)
 
 ```
 Subagent (general-purpose):
-  description: "Review Task N (spec + quality)"
+  description: "Review execution slice N (spec + quality)"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
   prompt: |
-    You are reviewing one task's implementation: first whether it matches its
-    requirements, then whether it is well-built. This is a task-scoped gate,
-    not a merge review — a broad whole-branch review happens separately after
-    all tasks are complete.
+    You are reviewing one execution slice's implementation: first whether it
+    matches its requirements, then whether it is well-built. This is a
+    slice-scoped gate, not a merge review — a broad whole-branch review
+    happens separately after all slices are complete.
 
     ## What Was Requested
 
     Read the task brief: [BRIEF_FILE]
 
-    Global constraints from the spec/design that bind this task:
+    Global constraints from the spec/design that bind this execution slice:
     [GLOBAL_CONSTRAINTS]
 
     ## What the Implementer Claims They Built
@@ -63,14 +64,21 @@ Subagent (general-purpose):
 
     ## Tests
 
-    The implementer already ran the tests and reported results with TDD
-    evidence for exactly this code. Do not re-run the suite to confirm their
-    report. Run a test only when reading the code raises a specific doubt
-    that no existing run answers — and then a focused test, never a
-    package-wide suite, race detector run, or repeated/high-count loop. If
-    heavy validation seems warranted, recommend it in your report instead of
-    running it. If you cannot run commands in this environment, name the
-    test you would run.
+    The implementer already ran the planned RED/GREEN commands and reported
+    Test Strategy, RED Batch Evidence or No-RED Reason, GREEN Evidence, and
+    Verification Commands for exactly this code. Review that evidence; do
+    not re-run the same suite to confirm their report. Run a test only when
+    reading the code raises a specific doubt that no existing run answers —
+    and then a focused test, never a package-wide suite, race detector run,
+    or repeated/high-count loop. If heavy validation seems warranted,
+    recommend it in your report instead of running it. If you cannot run
+    commands in this environment, name the test you would run.
+
+    Invalid RED evidence is an Important finding. RED is invalid when it
+    fails from missing class/method/function, missing file/import, "cannot
+    find symbol", compile failure, or any setup error before a behavior
+    assertion runs. A legitimate No-RED Reason is acceptable for structural
+    or integration-only slices.
 
     Warnings or other noise in the implementer's reported test output are
     findings — test output should be pristine.
@@ -100,7 +108,9 @@ Subagent (general-purpose):
 
     **Tests:**
     - Do the new and changed tests verify real behavior, not mocks?
-    - Are the task's edge cases covered?
+    - Are the execution slice's edge cases covered?
+    - Is the RED evidence valid, or is the No-RED Reason legitimate?
+    - Does the GREEN command cover the behavior changed in this slice?
 
     **Structure:**
     - Does each file have one clear responsibility with a well-defined interface?

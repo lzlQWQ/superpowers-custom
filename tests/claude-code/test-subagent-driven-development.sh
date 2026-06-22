@@ -129,14 +129,14 @@ fi
 
 echo ""
 
-# Test 7: Verify full task text is provided
+# Test 7: Verify task brief file handoff
 echo "Test 7: Task context provision..."
 
-output=$(run_claude "In subagent-driven-development, how does the controller provide task information to the implementer subagent? Answer using exactly this structure:
+output=$(run_claude "In subagent-driven-development, how does the controller provide execution-slice information to the implementer subagent? Answer using exactly this structure:
 Controller provides: <directly or by file>
 Implementer must read plan file: <yes or no>" "$CLAUDE_PROMPT_TIMEOUT")
 
-if assert_contains "$output" "provide.*directly\|full.*text\|paste\|include.*prompt" "Provides text directly"; then
+if assert_contains "$output" "Controller provides:.*file\|task-brief\|brief.*file" "Provides task brief by file"; then
     : # pass
 else
     exit 1

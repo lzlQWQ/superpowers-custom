@@ -25,7 +25,7 @@ Write the test first. Watch it fail. Write minimal code to pass.
 - Throwaway prototypes
 - Generated code
 - Configuration files
-- **Structural scaffolding tasks** — creating class/file skeletons, interface definitions, or DB migrations where any possible test failure would be a compile error (e.g., "the class doesn't exist yet"), not a behavior assertion failure. Write the skeleton first; write a behavioral red test in the next task once the symbol exists to call.
+- **Structural scaffolding tasks** — creating class/file skeletons, interface definitions, or DB migrations where any possible test failure would be a compile error (e.g., "the class doesn't exist yet"), not a behavior assertion failure. Write the skeleton first; write a behavioral red test once the symbol exists to call.
 
 Thinking "skip TDD just this once"? Stop. That's rationalization.
 
@@ -111,6 +111,24 @@ Vague name, tests mock not code
 - Clear name
 - Real code (no mocks unless unavoidable)
 
+### RED Validity Gate
+
+Before running a RED test, confirm the failure will prove behavior is missing.
+
+Run RED only when:
+- all classes, methods, files, imports, and test fixtures referenced by the test already exist
+- the expected failure is a behavior assertion failure from callable code
+- the command would pass if the implementation were correct
+
+Do not run RED when the expected failure is:
+- `cannot find symbol`, `method not found`, `function not defined`, or class/file missing
+- Maven/Gradle/npm/TypeScript compilation failure caused by missing structure
+- setup/import failure before the behavior assertion runs
+
+For invalid RED cases, create the structural skeleton first, record the
+No-RED reason, then write and run a behavioral RED batch once the target is
+callable.
+
 ### Verify RED - Watch It Fail
 
 **MANDATORY. Never skip.**
@@ -120,13 +138,14 @@ npm test path/to/test.test.ts
 ```
 
 Confirm:
-- Test fails (not errors)
+- Test fails with a behavior assertion (not compile/setup errors)
 - Failure message is expected
-- Fails because feature missing (not typos)
+- Fails because behavior is missing (not missing symbols, typos, or imports)
 
 **Test passes?** You're testing existing behavior. Fix test.
 
-**Test errors?** Fix error, re-run until it fails correctly.
+**Test errors before the assertion?** This is not valid RED. Fix structural
+setup first, then re-run until the failure is behavioral.
 
 ### GREEN - Minimal Code
 
@@ -329,9 +348,10 @@ Extract validation for multiple fields if needed.
 
 Before marking work complete:
 
-- [ ] Every new function/method has a test
-- [ ] Watched each test fail before implementing
-- [ ] Each test failed for expected reason (feature missing, not typo)
+- [ ] Every new behavior has a test
+- [ ] Structural-only additions have a No-RED reason or later behavioral coverage
+- [ ] Watched each valid RED test fail before implementing behavior
+- [ ] Each RED failed for expected behavior reason (not compile/setup errors)
 - [ ] Wrote minimal code to pass each test
 - [ ] All tests pass
 - [ ] Output pristine (no errors, warnings)

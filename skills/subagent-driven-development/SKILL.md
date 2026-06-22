@@ -1,20 +1,22 @@
 ---
 name: subagent-driven-development
-description: Use when executing implementation plans with independent tasks in the current session
+description: Use when executing implementation plans with independent execution slices in the current session
 ---
 
 # Subagent-Driven Development
 
-Execute plan by dispatching a fresh implementer subagent per task, a task review (spec compliance + code quality) after each, and a broad whole-branch review at the end.
+Execute plan by dispatching a fresh implementer subagent per execution
+slice (the plan's `Task N`), a task review (spec compliance + code quality)
+after each slice, and a broad whole-branch review at the end.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
-**Core principle:** Fresh subagent per task + task review (spec + quality) + broad final review = high quality, fast iteration
+**Core principle:** Fresh subagent per execution slice + task review (spec + quality) + broad final review = high quality, fast iteration
 
 **Narration:** between tool calls, narrate at most one short line — the
 ledger and the tool results carry the record.
 
-**Continuous execution:** Do not pause to check in with your human partner between tasks. Execute all tasks from the plan without stopping. The only reasons to stop are: BLOCKED status you cannot resolve, ambiguity that genuinely prevents progress, or all tasks complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
+**Continuous execution:** Do not pause to check in with your human partner between execution slices. Execute all tasks from the plan without stopping. The only reasons to stop are: BLOCKED status you cannot resolve, ambiguity that genuinely prevents progress, or all slices complete. "Should I continue?" prompts and progress summaries waste their time — they asked you to execute the plan, so execute it.
 
 ## When to Use
 
@@ -38,8 +40,8 @@ digraph when_to_use {
 
 **vs. Executing Plans (parallel session):**
 - Same session (no context switch)
-- Fresh subagent per task (no context pollution)
-- Review after each task (spec compliance + code quality), broad review at the end
+- Fresh subagent per execution slice (no context pollution)
+- Review after each execution slice (spec compliance + code quality), broad review at the end
 - Faster iteration (no human-in-loop between tasks)
 
 ## The Process
@@ -49,42 +51,55 @@ digraph process {
     rankdir=TB;
 
     subgraph cluster_per_task {
-        label="Per Task";
+        label="Per Execution Slice";
         "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
         "Implementer subagent asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
-        "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
+        "Implementer subagent runs planned RED/GREEN batch, commits, self-reviews" [shape=box];
         "Write diff file, dispatch task reviewer subagent (./task-reviewer-prompt.md)" [shape=box];
         "Task reviewer reports spec ✅ and quality approved?" [shape=diamond];
         "Dispatch fix subagent for Critical/Important findings" [shape=box];
-        "Mark task complete in todo list and progress ledger" [shape=box];
+        "Mark execution slice complete in todo list and progress ledger" [shape=box];
     }
 
-    "Read plan, note context and global constraints, create todos" [shape=box];
-    "More tasks remain?" [shape=diamond];
+    "Run plan-lint, read plan, note context and global constraints, create todos" [shape=box];
+    "More execution slices remain?" [shape=diamond];
     "Dispatch final code reviewer subagent (../requesting-code-review/code-reviewer.md)" [shape=box];
     "Use superpowers:finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, note context and global constraints, create todos" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Run plan-lint, read plan, note context and global constraints, create todos" -> "Dispatch implementer subagent (./implementer-prompt.md)";
     "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Write diff file, dispatch task reviewer subagent (./task-reviewer-prompt.md)";
+    "Implementer subagent asks questions?" -> "Implementer subagent runs planned RED/GREEN batch, commits, self-reviews" [label="no"];
+    "Implementer subagent runs planned RED/GREEN batch, commits, self-reviews" -> "Write diff file, dispatch task reviewer subagent (./task-reviewer-prompt.md)";
     "Write diff file, dispatch task reviewer subagent (./task-reviewer-prompt.md)" -> "Task reviewer reports spec ✅ and quality approved?";
     "Task reviewer reports spec ✅ and quality approved?" -> "Dispatch fix subagent for Critical/Important findings" [label="no"];
     "Dispatch fix subagent for Critical/Important findings" -> "Write diff file, dispatch task reviewer subagent (./task-reviewer-prompt.md)" [label="re-review"];
-    "Task reviewer reports spec ✅ and quality approved?" -> "Mark task complete in todo list and progress ledger" [label="yes"];
-    "Mark task complete in todo list and progress ledger" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final code reviewer subagent (../requesting-code-review/code-reviewer.md)" [label="no"];
+    "Task reviewer reports spec ✅ and quality approved?" -> "Mark execution slice complete in todo list and progress ledger" [label="yes"];
+    "Mark execution slice complete in todo list and progress ledger" -> "More execution slices remain?";
+    "More execution slices remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
+    "More execution slices remain?" -> "Dispatch final code reviewer subagent (../requesting-code-review/code-reviewer.md)" [label="no"];
     "Dispatch final code reviewer subagent (../requesting-code-review/code-reviewer.md)" -> "Use superpowers:finishing-a-development-branch";
 }
 ```
 
+## Plan Compatibility Gate
+
+Before dispatching the first implementer, run:
+
+```bash
+node skills/subagent-driven-development/scripts/plan-lint PLAN_FILE
+```
+
+If it fails, stop and fix the plan. Do not execute a plan with standalone
+Checkpoint headings, "Verified at next Checkpoint" language, missing
+execution-slice type tags, compile-error RED expectations, or behavioral
+tasks without GREEN verification.
+
 ## Pre-Flight Plan Review
 
-Before dispatching Task 1, scan the plan once for conflicts:
+Before dispatching the first execution slice, scan the plan once for conflicts:
 
 - tasks that contradict each other or the plan's Global Constraints
 - anything the plan explicitly mandates that the review rubric treats as a
@@ -100,7 +115,7 @@ conflicts that only emerge from implementation.
 
 Use the least powerful model that can handle each role to conserve cost and increase speed.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation tasks are mechanical when the plan is well-specified.
+**Mechanical implementation slices** (isolated functions, clear specs, 1-2 files): use a fast, cheap model. Most implementation work is mechanical when the plan is well-specified.
 
 **Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): use a standard model.
 
@@ -124,16 +139,23 @@ When the task's plan text contains the complete code to write, the
 implementation is transcription plus testing: use the cheapest tier for
 that implementer. Single-file mechanical fixes also take the cheapest tier.
 
-**Task complexity signals (implementation tasks):**
+**Task complexity signals (implementation slices):**
 - Touches 1-2 files with a complete spec → cheap model
 - Touches multiple files with integration concerns → standard model
 - Requires design judgment or broad codebase understanding → most capable model
 
 ## Handling Implementer Status
 
-Implementer subagents report one of four statuses. Handle each appropriately:
+Implementer subagents report one of four statuses for an execution slice.
+Handle each appropriately:
 
-**DONE:** Generate the review package (`scripts/review-package BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+**DONE:** Confirm the report contains Test Strategy, RED Batch Evidence or
+No-RED Reason, GREEN Evidence, Verification Commands, and the commit. Then
+generate the review package (`scripts/review-package BASE HEAD`, from this
+skill's directory — it prints the unique file path it wrote; BASE is the
+commit you recorded before dispatching the implementer — never `HEAD~1`,
+which silently drops all but the last commit of a multi-commit slice), then
+dispatch the task reviewer with the printed path.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
@@ -223,10 +245,10 @@ prints back — stays resident in your context for the rest of the session
 and is re-read on every later turn. Hand artifacts over as files:
 
 - **Task brief:** before dispatching an implementer, run this skill's
-  `scripts/task-brief PLAN_FILE N` — it extracts the task's full text to a
-  uniquely named file and prints the path. Compose the dispatch so the
-  brief stays the single source of requirements. Your dispatch should
-  contain: (1) one line on where this task fits in the project; (2) the
+  `scripts/task-brief PLAN_FILE N` — it extracts the execution slice's full
+  text to a uniquely named file and prints the path. Compose the dispatch so
+  the brief stays the single source of requirements. Your dispatch should
+  contain: (1) one line on where this slice fits in the project; (2) the
   brief path, introduced as "read this first — it is your requirements,
   with the exact values to use verbatim"; (3) interfaces and decisions
   from earlier tasks that the brief cannot know; (4) your resolution of
@@ -251,12 +273,12 @@ sequences — the single most expensive failure observed. Track progress in
 a ledger file, not only in todos.
 
 - At skill start, check for a ledger:
-  `cat "$(git rev-parse --git-path sdd)/progress.md"`. Tasks listed there
-  as complete are DONE — do not re-dispatch them; resume at the first task
-  not marked complete.
-- When a task's review comes back clean, append one line to the ledger in
+  `cat "$(git rev-parse --git-path sdd)/progress.md"`. Execution slices
+  listed there as complete are DONE — do not re-dispatch them; resume at
+  the first slice not marked complete.
+- When a slice's review comes back clean, append one line to the ledger in
   the same message as your other bookkeeping:
-  `Task N: complete (commits <base7>..<head7>, review clean)`.
+  `Task N: complete execution slice (commits <base7>..<head7>, review clean)`.
 - The ledger is your recovery map: the commits it names exist in git even
   when your context no longer remembers creating them. After compaction,
   trust the ledger and `git log` over your own recollection.
@@ -273,9 +295,9 @@ a ledger file, not only in todos.
 You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read plan file once: docs/superpowers/plans/feature-plan.md]
-[Create todos for all tasks]
+[Run plan-lint and create todos for all execution slices]
 
-Task 1: Hook installation script
+Task 1: Hook installation slice
 
 [Run task-brief for Task 1; dispatch implementer with brief + report paths + context]
 
@@ -286,7 +308,7 @@ You: "User level (~/.config/superpowers/hooks/)"
 Implementer: "Got it. Implementing now..."
 [Later] Implementer:
   - Implemented install-hook command
-  - Added tests, 5/5 passing
+  - RED assertion failed as expected; GREEN 5/5 passing
   - Self-review: Found I missed --force flag, added it
   - Committed
 
@@ -294,16 +316,16 @@ Implementer: "Got it. Implementing now..."
 Task reviewer: Spec ✅ - all requirements met, nothing extra.
   Strengths: Good test coverage, clean. Issues: None. Task quality: Approved.
 
-[Mark Task 1 complete]
+[Mark execution slice 1 complete]
 
-Task 2: Recovery modes
+Task 2: Recovery modes slice
 
 [Run task-brief for Task 2; dispatch implementer with brief + report paths + context]
 
 Implementer: [No questions, proceeds]
 Implementer:
   - Added verify/repair modes
-  - 8/8 tests passing
+  - RED assertion failed as expected; GREEN 8/8 passing
   - Self-review: All good
   - Committed
 
@@ -319,11 +341,11 @@ Fixer: Removed --json flag, added progress reporting, extracted PROGRESS_INTERVA
 [Task reviewer reviews again]
 Task reviewer: Spec ✅. Task quality: Approved.
 
-[Mark Task 2 complete]
+[Mark execution slice 2 complete]
 
 ...
 
-[After all tasks]
+[After all execution slices]
 [Dispatch final code-reviewer]
 Final reviewer: All requirements met, ready to merge
 
@@ -334,14 +356,14 @@ Done!
 
 **vs. Manual execution:**
 - Subagents follow TDD naturally
-- Fresh context per task (no confusion)
+- Fresh context per execution slice (no confusion)
 - Parallel-safe (subagents don't interfere)
 - Subagent can ask questions (before AND during work)
 
 **vs. Executing Plans:**
 - Same session (no handoff)
 - Continuous progress (no waiting)
-- Review checkpoints automatic
+- Review gates automatic
 
 **Efficiency gains:**
 - Controller curates exactly what context is needed; bulk artifacts move
@@ -357,8 +379,8 @@ Done!
 - Code quality ensures implementation is well-built
 
 **Cost:**
-- More subagent invocations (implementer + reviewer per task)
-- Controller does more prep work (extracting all tasks upfront)
+- More subagent invocations (implementer + reviewer per execution slice)
+- Controller does more prep work (extracting all execution slices upfront)
 - Review loops add iterations
 - But catches issues early (cheaper than debugging later)
 
@@ -367,11 +389,13 @@ Done!
 **Never:**
 - Start implementation on main/master branch without explicit user consent
 - Skip task review, or accept a report missing either verdict (spec compliance AND task quality are both required)
+- Execute a plan that fails `node skills/subagent-driven-development/scripts/plan-lint`
+- Accept RED evidence that failed from missing symbols, compile errors, imports, or setup
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
 - Make a subagent read the whole plan file (hand it its task brief —
   `scripts/task-brief` — instead)
-- Skip scene-setting context (subagent needs to understand where task fits)
+- Skip scene-setting context (subagent needs to understand where the execution slice fits)
 - Ignore subagent questions (answer before letting them proceed)
 - Accept "close enough" on spec compliance (reviewer found spec issues = not done)
 - Skip review loops (reviewer found issues = implementer fixes = review again)
@@ -382,8 +406,8 @@ Done!
 - Dispatch a task reviewer without a diff file — generate it first
   (`scripts/review-package BASE HEAD`) and name the printed path in the
   prompt
-- Move to next task while the review has open Critical/Important issues
-- Re-dispatch a task the progress ledger already marks complete — check
+- Move to the next execution slice while the review has open Critical/Important issues
+- Re-dispatch a slice the progress ledger already marks complete — check
   the ledger (and `git log`) after any compaction or resume
 
 **If subagent asks questions:**
@@ -407,10 +431,10 @@ Done!
 - **superpowers:using-git-worktrees** - Ensures isolated workspace (creates one or verifies existing)
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:requesting-code-review** - Code review template for the final whole-branch review
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+- **superpowers:finishing-a-development-branch** - Complete development after all execution slices
 
 **Subagents should use:**
-- **superpowers:test-driven-development** - Subagents follow TDD for each task
+- **superpowers:test-driven-development** - Subagents apply the RED Validity Gate and follow TDD for behavior in each execution slice
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution

@@ -21,7 +21,9 @@ Subagent (general-purpose):
     |----------|------------------|
     | Completeness | TODOs, placeholders, incomplete tasks, missing steps |
     | Spec Alignment | Plan covers spec requirements, no major scope creep |
-    | Task Decomposition | Tasks have clear boundaries, steps are actionable |
+    | Task Decomposition | Tasks are execution slices with clear boundaries, steps are actionable |
+    | Execution Shape | No standalone Checkpoint headings; every task has `[Structural]`, `[Behavioral Batch]`, `[Integration Batch]`, or `[Mixed]` |
+    | Test Discipline | RED batches fail by behavior assertion, not missing symbols or compilation; GREEN verification exists for behavior tasks |
     | Buildability | Could an engineer follow this plan without getting stuck? |
 
     ## Calibration
@@ -31,7 +33,8 @@ Subagent (general-purpose):
     Minor wording, stylistic preferences, and "nice to have" suggestions are not.
 
     Approve unless there are serious gaps — missing requirements from the spec,
-    contradictory steps, placeholder content, or tasks so vague they can't be acted on.
+    contradictory steps, placeholder content, invalid RED expectations, standalone
+    Checkpoints, or tasks so vague they can't be acted on.
 
     ## Output Format
 

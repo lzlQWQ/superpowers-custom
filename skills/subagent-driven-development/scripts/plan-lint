@@ -1,0 +1,141 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+
+const usage = `Validate implementation plans for SDD execution-slice compatibility.
+
+Usage: plan-lint PLAN_FILE`;
+
+const plan = process.argv[2];
+
+if (process.argv.length !== 3) {
+  console.error(usage);
+  process.exit(2);
+}
+
+if (!fs.existsSync(plan) || !fs.statSync(plan).isFile()) {
+  console.error(`plan-lint: no such plan file: ${plan}`);
+  process.exit(2);
+}
+
+const lines = fs.readFileSync(plan, "utf8").split(/\r?\n/);
+const failures = [];
+
+function report(lineNumber, message) {
+  failures.push(`plan-lint: ${plan}:${lineNumber}: ${message}`);
+}
+
+const badRedPattern =
+  /Expected:.*(cannot find symbol|symbol not found|method not found|function not defined|class not found|class does not exist|compile error|compilation error|compilation failure|maven compile|mvn .*compile.*fail|missing symbol|missing method|missing class)|RED.*(cannot find symbol|symbol not found|method not found|function not defined|compile error|compilation error|compilation failure)/i;
+
+for (const [index, line] of lines.entries()) {
+  const lineNumber = index + 1;
+
+  if (/^#{2,}\s+.*Checkpoint/.test(line)) {
+    report(
+      lineNumber,
+      `standalone Checkpoint headings are not execution slices: ${line}`,
+    );
+  }
+
+  if (/Verified at (the )?next Checkpoint|Verified at next Checkpoint/i.test(line)) {
+    report(
+      lineNumber,
+      `remove deferred checkpoint verification; verification must live inside the Task: ${line}`,
+    );
+  }
+
+  if (badRedPattern.test(line)) {
+    report(
+      lineNumber,
+      `invalid RED expectation; RED must fail by behavior assertion, not compile/setup failure: ${line}`,
+    );
+  }
+}
+
+let inFence = false;
+let currentTask = null;
+let seenTask = false;
+
+function finishTask() {
+  if (!currentTask) {
+    return;
+  }
+
+  const { lineNumber, type, hasRed, hasNoRed, hasGreen, hasCommit } = currentTask;
+
+  if (!type) {
+    report(
+      lineNumber,
+      "Task heading must include [Structural], [Behavioral Batch], [Integration Batch], or [Mixed]",
+    );
+  }
+
+  if (type === "Behavioral Batch" || type === "Mixed") {
+    if (!hasRed && !hasNoRed) {
+      report(lineNumber, `${type} task must include a RED batch or explicit No-RED Reason`);
+    }
+    if (!hasGreen) {
+      report(lineNumber, `${type} task must include GREEN verification`);
+    }
+  }
+
+  if (type === "Integration Batch" && !hasGreen) {
+    report(lineNumber, "Integration Batch task must include GREEN verification");
+  }
+
+  if (type && !hasCommit) {
+    report(lineNumber, "execution slice must include a Commit substep");
+  }
+}
+
+for (const [index, line] of lines.entries()) {
+  const lineNumber = index + 1;
+
+  if (/^```/.test(line)) {
+    inFence = !inFence;
+  }
+
+  if (!inFence && /^#{2,}\s+Task\s+[0-9]+/.test(line)) {
+    finishTask();
+    seenTask = true;
+
+    const typeMatch = line.match(/\[(Structural|Behavioral Batch|Integration Batch|Mixed)\]/);
+    currentTask = {
+      lineNumber,
+      type: typeMatch?.[1] ?? "",
+      hasRed: false,
+      hasNoRed: false,
+      hasGreen: false,
+      hasCommit: false,
+    };
+    continue;
+  }
+
+  if (currentTask && !inFence) {
+    if (/RED batch|RED Batch|RED:/.test(line)) {
+      currentTask.hasRed = true;
+    }
+    if (/No-RED Reason|No RED Reason/.test(line)) {
+      currentTask.hasNoRed = true;
+    }
+    if (/GREEN verification|GREEN Verification|GREEN:/.test(line)) {
+      currentTask.hasGreen = true;
+    }
+    if (/Commit/.test(line)) {
+      currentTask.hasCommit = true;
+    }
+  }
+}
+
+if (!seenTask) {
+  report(1, "plan must contain at least one Task heading");
+}
+finishTask();
+
+if (failures.length > 0) {
+  console.error(failures.join("\n"));
+  process.exit(1);
+}
+
+console.log("plan-lint: OK");

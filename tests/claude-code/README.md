@@ -100,14 +100,14 @@ Full workflow execution test (~10-30 minutes):
 - Creates implementation plan with 2 tasks
 - Executes plan using subagent-driven-development
 - Verifies actual behaviors:
-  - Plan read once at start (not per task)
-  - Full task text provided in subagent prompts
+  - Plan linted and read once at start
+  - Task brief files provided to subagents
   - Subagents perform self-review before reporting
-  - Spec compliance review happens before code quality
-  - Spec reviewer reads code independently
+  - Spec compliance is reviewed before code quality
+  - Invalid RED evidence is rejected
   - Working implementation is produced
   - Tests pass
-  - Proper git commits created
+  - Execution-slice commits are created
 
 **What it tests:**
 - The workflow actually works end-to-end

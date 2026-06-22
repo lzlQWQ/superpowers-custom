@@ -1,13 +1,13 @@
 ---
 name: executing-plans
-description: Use when you have a written implementation plan to execute in a separate session with review checkpoints
+description: Use when you have a written implementation plan to execute inline by execution slice
 ---
 
 # Executing Plans
 
 ## Overview
 
-Load plan, review critically, execute all tasks, report when complete.
+Load plan, review critically, execute all execution slices, report when complete.
 
 **Announce at start:** "I'm using the executing-plans skill to implement this plan."
 
@@ -19,19 +19,20 @@ Load plan, review critically, execute all tasks, report when complete.
 1. Read plan file
 2. Review critically - identify any questions or concerns about the plan
 3. If concerns: Raise them with your human partner before starting
-4. If no concerns: Create todos for the plan items and proceed
+4. Run `node skills/subagent-driven-development/scripts/plan-lint PLAN_FILE`
+5. If no concerns and lint passes: Create todos for the plan's execution slices and proceed
 
-### Step 2: Execute Tasks
+### Step 2: Execute Execution Slices
 
-For each task:
+For each `Task N` execution slice:
 1. Mark as in_progress
-2. Follow each step exactly (plan has bite-sized steps)
-3. Run verifications as specified
+2. Follow each substep exactly
+3. Run only the planned RED/GREEN or No-RED/GREEN verification for that slice
 4. Mark as completed
 
 ### Step 3: Complete Development
 
-After all tasks complete and verified:
+After all execution slices complete and verified:
 - Announce: "I'm using the finishing-a-development-branch skill to complete this work."
 - **REQUIRED SUB-SKILL:** Use superpowers:finishing-a-development-branch
 - Follow that skill to verify tests, present options, execute choice
@@ -41,6 +42,7 @@ After all tasks complete and verified:
 **STOP executing immediately when:**
 - Hit a blocker (missing dependency, test fails, instruction unclear)
 - Plan has critical gaps preventing starting
+- `plan-lint` fails
 - You don't understand an instruction
 - Verification fails repeatedly
 
@@ -56,6 +58,7 @@ After all tasks complete and verified:
 
 ## Remember
 - Review plan critically first
+- Run plan-lint before executing
 - Follow plan steps exactly
 - Don't skip verifications
 - Reference skills when plan says to
@@ -67,4 +70,4 @@ After all tasks complete and verified:
 **Required workflow skills:**
 - **superpowers:using-git-worktrees** - Ensures isolated workspace (creates one or verifies existing)
 - **superpowers:writing-plans** - Creates the plan this skill executes
-- **superpowers:finishing-a-development-branch** - Complete development after all tasks
+- **superpowers:finishing-a-development-branch** - Complete development after all execution slices

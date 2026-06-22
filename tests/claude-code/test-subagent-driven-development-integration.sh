@@ -5,8 +5,8 @@
 # Drill coverage: evals/scenarios/sdd-rejects-extra-features.yaml covers the
 # YAGNI enforcement subset (forbidden exports + reviewer-as-gate semantics)
 # and is stricter on that axis. This bash test additionally asserts:
-#   - >=3 git commits (initial + per-task commits, exercising SDD's
-#     commit-per-task workflow shape)
+#   - >=3 git commits (initial + per-execution-slice commits, exercising
+#     SDD's execution-slice workflow shape)
 #   - >=2 Claude Code subagent dispatches via Agent or Task (drill only asserts >=1)
 #   - Claude Code task-tracking tool usage (drill makes no assertion)
 #   - test/math.test.js exists (drill relies on `npm test` succeeding)
@@ -22,11 +22,11 @@ echo " Integration Test: subagent-driven-development"
 echo "========================================"
 echo ""
 echo "This test executes a real plan using the skill and verifies:"
-echo "  1. Plan is read once (not per task)"
-echo "  2. Full task text provided to subagents"
+echo "  1. Plan is linted and read once"
+echo "  2. Task brief files are provided to subagents"
 echo "  3. Subagents perform self-review"
-echo "  4. Spec compliance review before code quality"
-echo "  5. Review loops when issues found"
+echo "  4. Spec compliance reviewed before code quality"
+echo "  5. Invalid RED failures are not accepted as TDD evidence"
 echo "  6. Spec reviewer reads code independently"
 echo ""
 echo "WARNING: This test may take 10-30 minutes to complete."
@@ -55,15 +55,21 @@ EOF
 
 mkdir -p src test docs/superpowers/plans
 
-# Create a simple implementation plan
+# Create a simple implementation plan using execution-slice format. Each slice
+# creates callable structure before RED, so RED fails by behavior assertion
+# instead of import/function-not-found errors.
 cat > docs/superpowers/plans/implementation-plan.md <<'EOF'
 # Test Implementation Plan
 
 This is a minimal plan to test the subagent-driven-development workflow.
 
-## Task 1: Create Add Function
+## Global Constraints
 
-Create a function that adds two numbers.
+- Do not add extra math operations beyond the requested functions.
+
+---
+
+### Task 1: Create Add Function [Mixed]
 
 **File:** `src/math.js`
 
@@ -73,23 +79,59 @@ Create a function that adds two numbers.
 - Returns the sum of `a` and `b`
 - Export the function
 
-**Implementation:**
+- [ ] **Substep 1: Structural setup**
+
+```javascript
+export function add(a, b) {
+}
+```
+
+- [ ] **Substep 2: RED batch**
+
+Create `test/math.test.js`:
+
+```javascript
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { add } from '../src/math.js';
+
+test('add returns the sum of two numbers', () => {
+  assert.equal(add(2, 3), 5);
+  assert.equal(add(0, 0), 0);
+  assert.equal(add(-1, 1), 0);
+});
+```
+
+Run:
+```bash
+npm test
+```
+Expected: FAIL with assertion mismatch because `add()` returns `undefined`.
+
+- [ ] **Substep 3: Implementation**
+
 ```javascript
 export function add(a, b) {
   return a + b;
 }
 ```
 
-**Tests:** Create `test/math.test.js` that verifies:
-- `add(2, 3)` returns `5`
-- `add(0, 0)` returns `0`
-- `add(-1, 1)` returns `0`
+- [ ] **Substep 4: GREEN verification**
 
-**Verification:** `npm test`
+Run:
+```bash
+npm test
+```
+Expected: PASS, output clean.
 
-## Task 2: Create Multiply Function
+- [ ] **Substep 5: Commit**
 
-Create a function that multiplies two numbers.
+```bash
+git add src/math.js test/math.test.js
+git commit -m "feat: add add function"
+```
+
+### Task 2: Create Multiply Function [Mixed]
 
 **File:** `src/math.js` (add to existing file)
 
@@ -100,19 +142,57 @@ Create a function that multiplies two numbers.
 - Export the function
 - DO NOT add any extra features (like power, divide, etc.)
 
-**Implementation:**
+- [ ] **Substep 1: Structural setup**
+
+Add this export to `src/math.js`:
+
+```javascript
+export function multiply(a, b) {
+}
+```
+
+- [ ] **Substep 2: RED batch**
+
+Add to `test/math.test.js`:
+
+```javascript
+import { multiply } from '../src/math.js';
+
+test('multiply returns the product of two numbers', () => {
+  assert.equal(multiply(2, 3), 6);
+  assert.equal(multiply(0, 5), 0);
+  assert.equal(multiply(-2, 3), -6);
+});
+```
+
+Run:
+```bash
+npm test
+```
+Expected: FAIL with assertion mismatch because `multiply()` returns `undefined`.
+
+- [ ] **Substep 3: Implementation**
+
 ```javascript
 export function multiply(a, b) {
   return a * b;
 }
 ```
 
-**Tests:** Add to `test/math.test.js`:
-- `multiply(2, 3)` returns `6`
-- `multiply(0, 5)` returns `0`
-- `multiply(-2, 3)` returns `-6`
+- [ ] **Substep 4: GREEN verification**
 
-**Verification:** `npm test`
+Run:
+```bash
+npm test
+```
+Expected: PASS, output clean.
+
+- [ ] **Substep 5: Commit**
+
+```bash
+git add src/math.js test/math.test.js
+git commit -m "feat: add multiply function"
+```
 EOF
 
 # Initialize git repo
@@ -135,11 +215,11 @@ cat > "$TEST_PROJECT/prompt.txt" <<'EOF'
 I want you to execute the implementation plan at docs/superpowers/plans/implementation-plan.md using the subagent-driven-development skill.
 
 IMPORTANT: Follow the skill exactly. I will be verifying that you:
-1. Read the plan once at the beginning
-2. Provide full task text to subagents (don't make them read files)
+1. Run plan-lint and read the plan once at the beginning
+2. Provide task brief files to subagents (don't make them read the whole plan)
 3. Ensure subagents do self-review before reporting
-4. Run spec compliance review before code quality review
-5. Use review loops when issues are found
+4. Review spec compliance before code quality within the task reviewer
+5. Reject invalid RED evidence that fails from missing symbols or compilation
 
 Begin now. Execute the plan.
 EOF
@@ -149,11 +229,11 @@ EOF
 PROMPT="Execute the implementation plan at docs/superpowers/plans/implementation-plan.md using the subagent-driven-development skill.
 
 IMPORTANT: Follow the skill exactly. I will be verifying that you:
-1. Read the plan once at the beginning
-2. Provide full task text to subagents (don't make them read files)
+1. Run plan-lint and read the plan once at the beginning
+2. Provide task brief files to subagents (don't make them read the whole plan)
 3. Ensure subagents do self-review before reporting
-4. Run spec compliance review before code quality review
-5. Use review loops when issues are found
+4. Review spec compliance before code quality within the task reviewer
+5. Reject invalid RED evidence that fails from missing symbols or compilation
 
 Begin now. Execute the plan."
 
@@ -275,11 +355,11 @@ else
 fi
 echo ""
 
-# Test 7: Git commits show proper workflow
+# Test 7: Git commits show execution-slice workflow
 echo "Test 7: Git commit history..."
 commit_count=$(git -C "$TEST_PROJECT" log --oneline | wc -l)
-if [ "$commit_count" -gt 2 ]; then  # Initial + at least 2 task commits
-    echo "  [PASS] Multiple commits created ($commit_count total)"
+if [ "$commit_count" -gt 2 ]; then  # Initial + at least 2 execution-slice commits
+    echo "  [PASS] Execution-slice commits created ($commit_count total)"
 else
     echo "  [FAIL] Too few commits ($commit_count, expected >2)"
     FAILED=$((FAILED + 1))
@@ -315,11 +395,11 @@ if [ $FAILED -eq 0 ]; then
     echo "All verification tests passed!"
     echo ""
     echo "The subagent-driven-development skill correctly:"
-    echo "  ✓ Reads plan once at start"
-    echo "  ✓ Provides full task text to subagents"
+    echo "  ✓ Lints and reads plan once at start"
+    echo "  ✓ Provides task brief files to subagents"
     echo "  ✓ Enforces self-review"
-    echo "  ✓ Runs spec compliance before code quality"
-    echo "  ✓ Spec reviewer verifies independently"
+    echo "  ✓ Reviews spec compliance before code quality"
+    echo "  ✓ Rejects compile/setup errors as RED evidence"
     echo "  ✓ Produces working implementation"
     exit 0
 else

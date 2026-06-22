@@ -4,16 +4,16 @@ Use this template when dispatching an implementer subagent.
 
 ```
 Subagent (general-purpose):
-  description: "Implement Task N: [task name]"
+  description: "Implement execution slice N: [task name]"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
   prompt: |
-    You are implementing Task N: [task name]
+    You are implementing execution slice N: [task name]
 
     ## Task Description
 
     Read your task brief first: [BRIEF_FILE]
-    It contains the full task text from the plan.
+    It contains the full execution-slice text from the plan.
 
     ## Context
 
@@ -32,20 +32,35 @@ Subagent (general-purpose):
     ## Your Job
 
     Once you're clear on requirements:
-    1. Implement exactly what the task specifies
-    2. Write tests (following TDD if task says to)
-    3. Verify implementation works
-    4. Commit your work
-    5. Self-review (see below)
-    6. Report back
+    1. Follow the task brief exactly as one execution slice
+    2. Run only the planned RED batch when it passes the RED Validity Gate
+    3. If no valid RED exists, record the No-RED reason from the brief
+    4. Implement exactly what the slice specifies
+    5. Run the planned GREEN verification command(s)
+    6. Commit the execution slice
+    7. Self-review (see below)
+    8. Report back
 
     Work from: [directory]
 
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
     It's always OK to pause and clarify. Don't guess or make assumptions.
 
-    While iterating, run the focused test for what you're changing; run the
-    full suite once before committing, not after every edit.
+    While iterating, use the focused commands from the brief. Do not invent
+    extra suite runs unless the brief asks for them or a specific failure
+    requires one.
+
+    ## RED Validity Gate
+
+    A RED run is valid only if the command reaches callable code and fails on
+    a behavior assertion. Do not run or report compile/setup failure as RED.
+    Invalid RED failures include missing class/method/function, missing file,
+    missing import, "cannot find symbol", or Maven/Gradle/npm/TypeScript
+    compilation failure caused by absent structure.
+
+    If the brief's RED command would fail before a behavior assertion:
+    - perform the structural setup first if the brief defines it, then run RED
+    - otherwise stop with NEEDS_CONTEXT and explain the invalid RED
 
     ## Code Organization
 
@@ -98,8 +113,9 @@ Subagent (general-purpose):
 
     **Testing:**
     - Do tests actually verify behavior (not just mock behavior)?
-    - Did I follow TDD if required?
-    - Are tests comprehensive?
+    - Did I run a valid RED batch, or record a legitimate No-RED reason?
+    - Did I run the GREEN verification command from the brief?
+    - Are tests comprehensive for this execution slice?
     - Is the test output pristine (no stray warnings or noise)?
 
     If you find issues during self-review, fix them now before reporting.
@@ -114,10 +130,11 @@ Subagent (general-purpose):
 
     Write your full report to [REPORT_FILE]:
     - What you implemented (or what you attempted, if blocked)
-    - What you tested and test results
-    - **TDD Evidence** (if TDD was required for this task):
-      - RED: command run, relevant failing output before implementation, and why the failure was expected
-      - GREEN: command run and relevant passing output after implementation
+    - **Test Strategy:** Structural | RED/GREEN batch | Integration | Mixed
+    - **RED Batch Evidence:** command run, relevant failing output before implementation, and why the failure was a valid behavior assertion
+    - **No-RED Reason:** only when no valid RED exists; explain why a RED would be compile/setup noise
+    - **GREEN Evidence:** command run and relevant passing output after implementation
+    - **Verification Commands:** exact commands run, in order
     - Files changed
     - Self-review findings (if any)
     - Any issues or concerns
@@ -126,7 +143,7 @@ Subagent (general-purpose):
     report file):
     - **Status:** DONE | DONE_WITH_CONCERNS | BLOCKED | NEEDS_CONTEXT
     - Commits created (short SHA + subject)
-    - One-line test summary (e.g. "14/14 passing, output pristine")
+    - One-line test summary (e.g. "RED assertion failed as expected; GREEN 14/14 passing, output pristine")
     - Your concerns, if any
     - The report file path
 

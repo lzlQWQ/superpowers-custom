@@ -12,7 +12,8 @@ Dispatch a code reviewer subagent to catch issues before they cascade. The revie
 ## When to Request Review
 
 **Mandatory:**
-- After each task in subagent-driven development
+- For the final broad review in subagent-driven development
+- After each execution slice only in workflows that explicitly use this broad review template as their slice gate
 - After completing major feature
 - Before merge to main
 
@@ -75,12 +76,12 @@ You: [Fix progress indicators]
 ## Integration with Workflows
 
 **Subagent-Driven Development:**
-- Review after EACH task
-- Catch issues before they compound
-- Fix before moving to next task
+- Per-slice review uses `subagent-driven-development/task-reviewer-prompt.md`
+- Use this broad template for the final whole-branch review
+- Fix Critical and Important findings before merge
 
 **Executing Plans:**
-- Review after each task or at natural checkpoints
+- Review after each execution slice or major feature checkpoint
 - Get feedback, apply, continue
 
 **Ad-Hoc Development:**
